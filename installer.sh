@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # Userify Shim Installer
-# Copyright (c) 2011-2016 Userify Corporation
+# Copyright (c) 2017 Userify Corporation
 
 # How the shim works:
 #
@@ -42,15 +42,16 @@ clear
 # Install Python on distributions that might be missing it.
 set +e
 
-if [ ! $(which python) ]; then
-    if [ $(which apt) ]; then
+if [ ! "$(command -v python)" ]; then
+    if [ "$(command -v apt)" ]; then
         echo "Installing Python with apt-get"
-        sudo apt-get -qqy install python 2>/dev/null
-        sudo apt-get -qqy install python-minimal 2>/dev/null
-    elif [ $(which yum) ]; then
+        sudo apt-get update >/dev/null
+        sudo apt-get -qqy install python >/dev/null
+        sudo apt-get -qqy install python-minimal >/dev/null
+    elif [ "$(command -v yum)" ]; then
         echo "Installing Python with yum."
-        sudo yum install -y python
-    elif [ $(which dnf) ]; then
+        sudo yum install -y python >/dev/null
+    elif [ "$(command -v dnf)" ]; then
         echo "Installing Python with dnf"
         sudo dnf install -y python
     else
@@ -62,7 +63,7 @@ fi
 
 
 cat << EOF
-   
+
              ${BLUE_TEXT}            _--_
              ${BLUE_TEXT}           (    \\
              ${BLUE_TEXT}        --/      )
@@ -81,6 +82,9 @@ ${PURPLE_TEXT}Tip: to understand how the shim works, read the source at
 ${CYAN_TEXT}https://github.com/userify/shim/
 ${RESET_TEXT}
 EOF
+
+# to get things reset in case you are cat'ing..
+export RESET_TEXT="[0m"
 
 # Check for root
 if [ "$(id -u)" != "0" ]; then
@@ -139,7 +143,7 @@ cat << EOF > /opt/userify/uninstall.sh
 #
 # --------------------------------------------
 
-# Copyright (c) 2016 Userify Corp.
+# Copyright (c) 2017 Userify Corp.
 
 echo
 echo
@@ -154,6 +158,12 @@ fi
 # Debian, Ubuntu, RHEL:
 sed -i "s/\/opt\/userify\/shim.sh \&//" \
     /etc/rc.local 2>/dev/null
+
+# New versions of Debian/deriv (9.0/16.04LTS) need this:
+set +e
+touch /etc/rc.local
+systemctl enable rc-local.service 2>/dev/null
+set -e
 
 # SUSE:
 sed -i "s/\/opt\/userify\/shim.sh \&//" \
@@ -241,7 +251,7 @@ else
     echo "${RED_TEXT}api_id variable not found, skipping creds.py creation."
     echo "This might be a bug unless you did this on purpose."
     echo "NOTE, Userify cannot work without creds.py. Please create it yourself."
-    echo ${RESET_TEXT}
+    echo "${RESET_TEXT}"
 fi
 
 
@@ -259,7 +269,7 @@ cat << "EOF" > /opt/userify/shim.sh
 #
 # --------------------------------------------
 
-# Copyright (c) 2016 Userify Corp.
+# Copyright (c) 2017 Userify Corp.
 
 static_host="static.userify.com"
 source /opt/userify/userify_config.py
@@ -273,8 +283,9 @@ touch /var/log/userify-shim.log
 chmod -R 600 /var/log/userify-shim.log
 
 # kick off shim.py
-[ -z "$PYTHON" ] && PYTHON="$(which python)"
-curl -1 -f${SELFSIGNED}Ss https://$static_host/shim.py | $PYTHON -u 2>&1 >> /var/log/userify-shim.log
+[ -z "$PYTHON" ] && PYTHON="$(command -v python)"
+curl -1 -f${SELFSIGNED}Ss https://$static_host/shim.py | $PYTHON -u \
+    2>&1 >> /var/log/userify-shim.log
 
 if [ $? != 0 ]; then
     # extra backoff in event of failure,
@@ -313,11 +324,11 @@ elif [ -f /etc/init.d/after.local ]; then
 #     cat << EOF > /etc/systemd/system/userify-shim.service
 # [Unit]
 # Description=Userify Shim (userify.com)
-# 
+#
 # [Service]
 # Type=forking
 # ExecStart=/opt/userify/shim.sh
-# 
+#
 # [Install]
 # WantedBy=multi-user.target
 # EOF
@@ -325,13 +336,21 @@ elif [ -f /etc/init.d/after.local ]; then
 else
     cat << EOF >&2
 ${RED_TEXT}
-Unable to set start at bootup -- no /etc/rc.local file?
-You'll have to set shim to startup on it's own: create an
-init script that launches /opt/userify/shim.sh on startup.
-In most distributions, this would have been a single line
-in /etc/rc.local, but you may need to do something more
-exotic. Please contact us with Linux version information
-and we may have more information for you.${RESET_TEXT}
+We tried to detect this Linux distro, but still unable to set start at bootup.
+You'll have to set shim to startup on its own: create an init script that
+launches /opt/userify/shim.sh on startup.  In most distributions, this would
+have been a single line in /etc/rc.local, but you may need to do something more
+exotic. Please contact us (support@userify.com) with Linux version information
+so we can get working on support.
+${RESET_TEXT}
+
+Here's some debug info, if available on your platform:
+
+$(cat /etc/os-release 2>/dev/null)
+$(lsb_release -a 2>/dev/null)
+$(uname -a 2>/dev/null)
+
+
 EOF
     exit 1
 fi
@@ -384,16 +403,14 @@ echo "Please review shim output in /var/log/userify-shim.log"
 #     echo ${RED_TEXT}
 #     echo Unable to review userify-shim.log, please review it separately
 #     echo to ensure the shim is working properly.
-echo ${BLUE_TEXT}
+echo "${BLUE_TEXT}"
 echo cat /var/log/userify-shim.log
-echo ${RESET_TEXT}
+echo "${RESET_TEXT}"
 # else
 #     echo $OUTPUT
 # fi
-echo ${GREEN_TEXT}
+echo "${GREEN_TEXT}"
 echo "Thanks for using Userify!"
-echo ${RESET_TEXT}
+echo "${RESET_TEXT}"
 echo -------------------------------------------------------------
 echo
-
-
